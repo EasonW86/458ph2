@@ -1,0 +1,415 @@
+% PT Scanner Version 5.1
+%
+% Date:  30 Jun 1980
+%       (Revised v5.1 - 8 Feb 2021)
+%
+% Author:  Alan Rosselet
+%
+% Abstract
+%     The scanner breaks a PT source program up into syntax tokens.
+%     It removes token separators - blanks, tabs, comments.  The
+%     scanner detects these lexical errors:  unclosed comments,
+%     unclosed literals, literals that cross a line boundary,
+%     illegal characters and integers followed by identifiers with 
+%     no separator between them.
+
+Input : 
+        lLetter 
+        firstCharClass = lLetter 
+        lDigit
+        lPlus           '+'
+        lMinus          '-'
+        lStar           '*'
+        lColon          ':'
+        lEquals         '='
+        lDot            '.'
+        lComma          ','
+        lSemicolon      ';'
+        lQuote          '"' % Updated single quote (') to double quote (")
+        lBackslash
+        lLeftAngle      '<'
+        lRightAngle     '>'
+        lLeftParen      '('
+        lRightParen     ')'
+        lLeftBracket    '['
+        lRightBracket   ']'
+        lLeftBrace      '{'
+        lRightBrace     '}'
+        lSlash          '/' % slash Added
+        lPercent        '%' % percent Added
+        lHash           '#' % hash Added
+        lBang           '!' % bang Added
+        lBar            '|' % bar Added
+        lBlank
+        lIllegal
+        lNewLine
+        lCarriageReturn
+        lTab
+        lNewPage 
+        lEndFile
+        lastCharClass = lEndFile;
+
+Output :
+        % Keyword tokens -
+        %   Tokens pDiv through pRepeat are keywords which will be 
+        %   separated from user defined identifiers by the Screener.
+        %   This Scanner treats them all as identifiers.
+        
+        pChoose     % choose Added
+        firstKeywordToken = pChoose
+        pOr
+        pAnd
+        pNot
+        pThen
+        pElse
+        pOf
+        pEnd
+        pFile
+        pVar
+        pIf
+        pWhile
+        % Newly added keyword tokens execept for pRepeat
+        pElseif     % elseif Added
+        pFun        % fun Added
+        pIs         % is Added
+        pTypeof     % typeof Added
+        pPkg        % pkg Added
+        pPublic     % public Added
+        pUsing      % using Added
+        pVal        % Val Added
+        pWhen       % when Added
+        pRepeat
+        lastKeywordToken = pRepeat
+        
+        
+
+
+        % Scanner tokens -
+        %   These are the tokens actually recognized by the Scanner itself.
+
+        % Compound tokens - 
+        %   These will be sent to the parser with a value or index.
+        pIdentifier 
+        firstCompoundInputToken = pIdentifier
+        pInteger
+        pStringLiteral
+        lastCompoundInputToken = pStringLiteral
+
+        % Non-compound tokens - 
+        %   These tokens simply represent themselves.
+        % New Non-compound tokens
+        % Newly Added syntax tokens
+        pSlash          % Added
+        pPercent        % Added
+        pHash           % Added
+        pBar            % Added
+        pDoubleOrBar    % Added
+        pPlusEquals     % Added
+        pMinusEquals    % Added
+        pStarEquals     % Added
+        pSlashEquals    % Added
+        pPercentEquals  % Added
+        pDoubleEquals   % Added
+        % End of Newly Added syntax tokens
+        pNewLine
+        pEndFile
+        pPlus
+        pMinus
+        pStar
+        pColonEquals
+        pDot
+        pComma
+        pSemicolon
+        pColon
+        pEquals
+        pNotEqual
+        pLess
+        pLessEqual
+        pGreaterEqual
+        pGreater
+        pLeftParen
+        pRightParen
+        pLeftBracket
+        pRightBracket
+        pDotDot
+        lastSyntaxToken = pDotDot;
+        
+
+Error :
+        eIllegalChar = 5
+        firstScanError = eIllegalChar
+        eStringLiteralLine
+        eStringLiteralEOF
+        eCommentEOF
+        eNoSeparator
+        lastScanError = eNoSeparator;
+
+mechanism Buffer :
+    % Buffer saves the characters associated with the
+    % compound tokens identifier, integer and literal.
+
+    oBufferSave;
+        % Save the character form of the last accepted lexical token.
+
+
+rules
+
+% Note that the order of choice alternatives
+% may have a significant effect on performance
+% under some implementations of S/SL.
+Scan :
+        {[
+            | lBlank :
+            | lLetter:
+                oBufferSave
+                @Identifier
+            | lNewLine:
+                .pNewLine
+            | lCarriageReturn:
+                % from Windows files, ignore
+            | lTab:
+            | ';':
+                .pSemicolon
+            | '(':
+                .pLeftParen
+            | ')':
+                .pRightParen
+            | '[':
+                .pLeftBracket
+            | ']':
+                .pRightBracket
+            | ',':
+                .pComma
+            | ':':
+                [
+                    | '=':
+                        .pColonEquals
+                    | *:
+                        .pColon
+                ]
+            | lDigit:
+                oBufferSave
+                @Integer
+                [
+                    | lLetter:
+                        #eNoSeparator
+                        oBufferSave
+                        @Identifier
+                    | *:
+                ]
+            | '=':
+                [
+                    | '=':
+                        .pDoubleEquals
+                    |*:
+                        .pEquals
+                ]
+            | '+':
+                [
+                    | '=':
+                        .pPlusEquals
+                    |*:
+                        .pPlus
+                ]
+            | lQuote:
+                @StringLiteral
+            | '-':
+                [
+                    | '=':
+                        .pMinusEquals
+                    |*:
+                        .pMinus
+                ]
+            | '!':
+                [
+                    | '=':
+                        .pNotEqual
+                    |*:
+                        #eIllegalChar
+                ]
+            | '.':
+                [
+                    | '.':
+                        .pDotDot
+                    | *:
+                        .pDot
+                ]
+            | '<':
+                [
+                    | '>':
+                        .pNotEqual
+                    | '=':
+                        .pLessEqual
+                    | *:
+                        .pLess
+                ]
+            | '>':
+                [
+                    | '=':
+                        .pGreaterEqual
+                    | *:
+                        .pGreater
+                ]
+            | '/':
+                [
+                    | '=': 
+                        .pSlashEquals
+                    | '/':
+                        @SingleLineComment
+                    | '*':
+                        @MultiLineComment
+                    | *:
+                    .pSlash
+                ]
+                
+            | '*':
+                [
+                    | '=':
+                        .pStarEquals
+                    |*:
+                        .pStar
+                ]
+            | '%':
+                [
+                    | '=':
+                        .pPercentEquals
+                    |*:
+                        .pPercent
+                ]
+            | '#':
+                .pHash
+            | '|':
+                [
+                    | '|':
+                        .pDoubleOrBar
+                    |*:
+                        .pBar
+                ]
+            | lNewPage:
+            | lEndFile:
+                .pEndFile
+                >
+            | *:
+                ?
+                #eIllegalChar
+        ]};
+
+Identifier :
+        % Assemble an identifier token
+
+        {[
+            | lLetter, lDigit:
+                oBufferSave
+            | *:
+                .pIdentifier
+                >
+        ]};
+
+Integer :
+        % Assemble an integer token
+
+        {[
+            | lDigit:
+                oBufferSave
+            | *:
+                .pInteger
+                >
+        ]};
+
+StringLiteral :
+        % Assemble a literal string token
+
+        {[
+            | lQuote:
+                [
+                    | lQuote:
+                        oBufferSave
+                    | *:
+                        .pStringLiteral
+                        >
+                ]
+            | lNewLine:         % literal must not cross a line boundary
+                #eStringLiteralLine
+                .pNewLine
+                >
+            | lEndFile:         % literal must be closed before EOF
+                #eStringLiteralEOF
+                .pEndFile
+                >
+            | *:        % literal may contain any other character
+                [
+                    | lBackslash:
+                        oBufferSave
+                    | *:
+                ]
+                ?
+                oBufferSave
+        ]};
+% Implemented Single Line Comments
+SingleLineComment:
+        {[
+            | lEndFile:     % If the file ends then emit pEndFile and return.
+                .pEndFile
+                >
+            | lNewLine:     % If the file ends then emit pNewLine and return
+                .pNewLine
+                >
+            | *:            % Comment may contain any other character
+                ?
+        ]};
+% Implemented Multiple Line Comments
+MultiLineComment:
+        {[
+            | '*':
+                [
+                    | '/':
+                        >
+                    |*:
+                ]
+            | lNewLine:
+                .pNewLine
+            | lEndFile:
+                #eCommentEOF
+                .pEndFile
+                >
+            | *:
+                ?
+        ]};
+
+
+% Removed Comment and AlternateComment replaced with SingleLineComment and MultiLineComment
+%Comment :
+%       % Discard the contents of a comment
+%
+%       {[
+%           | '}':
+%               >
+%           | lNewLine:
+%               .pNewLine
+%           | lEndFile:         % comment must be closed before EOF
+%               #eCommentEOF
+%               .pEndFile
+%               >
+%           | *:        % comment may contain any other character
+%               ?
+%       ]};
+
+%AlternateComment :
+%       {[
+%           | '*':
+%               [
+%                   | ')':
+%                       >
+%                   | *:
+%               ]
+%           | lNewLine:
+%               .pNewLine
+%           | lEndFile:
+%               #eCommentEOF
+%               .pEndFile
+%               >
+%           | *:
+%               ?
+%       ]};
+
+end
